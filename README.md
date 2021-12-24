@@ -1,5 +1,6 @@
+#좀 후에 업데이트 예정
 ### Us(project2) 웹 소셜 플랫폼 / React, Node.js
-##### - 개발 기간 : 2021.11.08 ~ 진행중
+##### - 개발 기간 : 2021.11.08 ~ 2021.12.24
 ##### - 주제 : 소셜 채팅 플랫폼
 ##### - 개발 : Visual Studio Code, MySQL
 ##### - 사용 언어 : Node.js, React, My-SQL, HTML5, CSS3, Javascript(ES6)
