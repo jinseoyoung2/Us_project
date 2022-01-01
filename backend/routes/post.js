@@ -1,0 +1,315 @@
+const express = require('express');
+const mysql = require('mysql');
+const config = require('../config/config');
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const multer = require('multer');
+const pool = mysql.createPool(config);
+
+const router = express.Router()
+router.use(bodyParser.urlencoded({ extended: false }))
+
+// 업로드 저장방법
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        // 이미지 파일
+        if (file.mimetype == "image/jpeg" || file.mimetype == "image/jpg" || file.mimetype == "image/png") {
+            cb(null, 'C:/Users/jybeo/Desktop/us2/frontend/public/uploads')
+            //텍스트 파일
+        } else if (file.mimetype == "application/pdf" || file.mimetype == "application/txt" || file.mimetype == "application/octet-stream") {
+            cb(null, 'C:/Users/jybeo/Desktop/us2/frontend/public/uploads')
+        }
+    },
+    // 파일이름 설정
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + "_" + file.originalname)
+    }
+});
+
+// 업로드
+const upload = multer({ storage: storage })
+
+// 게시글 등록
+router.route('/post/upload').post(upload.array('fileupload', 10), (req, res) => {
+    const memberIdx = req.body.memberIdx;
+    const content = req.body.content;
+    const file = req.files;
+
+    if (pool) {
+        postUpload(memberIdx, content, file, (err, result) => {
+            if (err) {
+                res.writeHead('200', { 'content-type': 'text/html; charset=utf8' });
+                res.write('<h2>메인데이터 출력 실패 </h2>');
+                res.write('<p>데이터가 안나옵니다.</p>')
+                res.end();
+            } else {
+                res.send(result);
+            }
+        });
+    }
+});
+
+// 게시글 수정
+router.route('/post/edit').post(upload.array('fileupload', 10), (req, res) => {
+    const idx = req.body.idx;
+    const content = req.body.content;
+    const file = req.files;
+
+    if (pool) {
+        postEdit(idx, content, file, (err, result) => {
+            if (err) {
+                res.writeHead('200', { 'content-type': 'text/html; charset=utf8' });
+                res.write('<h2>메인데이터 출력 실패 </h2>');
+                res.write('<p>데이터가 안나옵니다.</p>')
+                res.end();
+            } else {
+                res.send(result);
+            }
+        });
+    }
+})
+
+// 게시글 삭제
+router.route('/post/delete').get((req, res) => {
+    const idx = req.query.idx;
+
+    if (pool) {
+        postDelete(idx, (err, result) => {
+            if (err) {
+                res.writeHead('200', { 'content-type': 'text/html; charset=utf8' });
+                res.write('<h2>메인데이터 출력 실패 </h2>');
+                res.write('<p>데이터가 안나옵니다.</p>')
+                res.end();
+            } else {
+                res.send(result);
+            }
+        });
+    }
+})
+
+// 게시글 좋아요
+router.route('/post/like').get((req, res) => {
+    const postIdx = req.query.postIdx;
+    const memberIdx = req.query.memberIdx;
+
+    if (pool) {
+        postLike(postIdx, memberIdx, (err, result) => {
+            if (err) {
+                res.writeHead('200', { 'content-type': 'text/html; charset=utf8' });
+                res.write('<h2>메인데이터 출력 실패 </h2>');
+                res.write('<p>데이터가 안나옵니다.</p>')
+                res.end();
+            } else {
+                res.send(result);
+            }
+        });
+    }
+})
+
+// 게시글 좋아요 여부
+router.route('/post/like/exist').get((req, res) => {
+    const postIdx = req.query.postIdx;
+    const memberIdx = req.query.memberIdx;
+
+    if (pool) {
+        postLikeExist(postIdx, memberIdx, (err, result) => {
+            if (err) {
+                res.writeHead('200', { 'content-type': 'text/html; charset=utf8' });
+                res.write('<h2>메인데이터 출력 실패 </h2>');
+                res.write('<p>데이터가 안나옵니다.</p>')
+                res.end();
+            } else {
+                res.send(result);
+            }
+        });
+    }
+})
+
+// 게시글 디테일
+router.route('/post/detail').get((req, res) => {
+    const postIdx = req.query.postIdx;
+    if (pool) {
+        postDetail(postIdx, (err, result) => {
+            if (err) {
+                res.writeHead('200', { 'content-type': 'text/html; charset=utf8' });
+                res.write('<h2>메인데이터 출력 실패 </h2>');
+                res.write('<p>데이터가 안나옵니다.</p>')
+                res.end();
+            } else {
+                res.send(result);
+            }
+        })
+    }
+})
+
+
+// 게시글 디테일
+const postDetail = function (postIdx, callback) {
+    pool.getConnection((err, conn) => {
+        if (err) {
+            console.log(err);
+        } else {
+            const sql1 = 'select p.content, p.createdAt, m.email, m.name, m.img from post as p join member as m on p.memberIdx = m.idx where p.idx = ?;';
+            const sql1s = mysql.format(sql1, postIdx)
+
+            const sql2 = 'select imgName from img where postIdx = ?;';
+            const sql2s = mysql.format(sql2, postIdx);
+
+            const sql3 = 'select r.content, m.name, m.img, m.email, r.memberIdx, r.idx, r.groupIdx, r.depth, r.createdAt from reply as r join member as m on r.memberIdx = m.idx where postIdx = ? order by groupIdx asc, groupNum asc;';
+            const sql3s = mysql.format(sql3, postIdx);
+
+            conn.query(sql1s + sql2s + sql3s, (err, result) => {
+                conn.release();
+                if (err) {
+                    callback(err, null);
+                    return;
+                } else {
+                    callback(null, result);
+                }
+            });
+        }
+    });
+}
+
+// 게시글 등록
+const postUpload = function (memberIdx, content, file, callback) {
+    pool.getConnection((err, conn) => {
+        if (err) {
+            console.log(err);
+        } else {
+            conn.query('insert into post(memberIdx, content, report) values(?, ?, ?)', [memberIdx, content, "N"], (err, result1) => {
+                for (let i = 0; i < file.length; i++) {
+                    let fileName = file[i].filename;
+                    let filePath = file[i].path;
+                    let postIdx = result1.insertId;
+                    conn.query('insert into img(postIdx, imgPath, imgName) values(?, ?, ?)', [postIdx, filePath, fileName])
+                }
+                conn.release();
+                if (err) {
+                    callback(err, null);
+                    return;
+                } else {
+                    callback(null, true);
+                }
+            });
+        }
+    });
+}
+
+// 게시글 수정
+const postEdit = function (idx, content, file, callback) {
+    pool.getConnection((err, conn) => {
+        if (err) {
+            console.log(err);
+        } else {
+            if (file == "") {
+                conn.query('update post set content = ? where idx = ?', [content, idx], (err, result1) => {
+                    conn.release();
+                    if (err) {
+                        callback(err, null);
+                        return;
+                    } else {
+                        callback(null, true);
+                    }
+                });
+            } else {
+                conn.query('update post set content = ? where idx = ?', [content, idx], (err, result1) => {
+                    conn.query('select imgName from img where postIdx = ?', [idx], (err, result2) => {
+                        for (let i = 0; i < result2.length; i++) {
+                            fs.unlink('C:/Users/jybeo/Desktop/us2/frontend/public/uploads/' + result2[i].imgName, (err) => {
+                            });
+                        }
+                    });
+                    conn.query('delete from img where postIdx = ?', [idx]);
+                    for (let i = 0; i < file.length; i++) {
+                        let fileName = file[i].filename;
+                        let filePath = file[i].path;
+                        conn.query('insert into img(postIdx, imgPath, imgName) values(?, ?, ?)', [idx, filePath, fileName])
+                    }
+                    conn.release();
+                    if (err) {
+                        callback(err, null);
+                        return;
+                    } else {
+                        callback(null, true);
+                    }
+                });
+            }
+        }
+    });
+}
+
+// 게시글 삭제
+const postDelete = function (idx, callback) {
+    pool.getConnection((err, conn) => {
+        if (err) {
+            console.log(err);
+        } else {
+            conn.query('select imgName from img where postIdx = ?', [idx], (err, result) => {
+                for (let i = 0; i < result.length; i++) {
+                    fs.unlink('uploads/images/' + result[i].imgName, (err) => {
+                    });
+                }
+                conn.query('delete from post where idx = ?', [idx], (err, result) => {
+                    conn.release();
+                    if (err) {
+                        callback(err, null);
+                        return;
+                    } else {
+                        callback(null, true);
+                    }
+                })
+            });
+        }
+    });
+}
+
+// 게시글 좋아요
+const postLike = function (postIdx, memberIdx, callback) {
+    pool.getConnection((err, conn) => {
+        if (err) {
+            console.log(err);
+        } else {
+            conn.query('select exists (select idx from post_like where postIdx = ? and memberIdx = ? limit 1) as success;', [postIdx, memberIdx], (err, result) => {
+                if (result[0].success == 1) {
+                    conn.query('delete from post_like where postIdx = ? and memberIdx = ?', [postIdx, memberIdx]);
+                } else {
+                    conn.query('insert into post_like(postIdx, memberIdx) values(?, ?)', [postIdx, memberIdx]);
+                }
+
+                conn.release();
+                if (err) {
+                    callback(err, null);
+                    return;
+                } else {
+                    callback(null, true);
+                }
+            })
+        }
+    });
+}
+
+// 게시글 좋아요 여부
+const postLikeExist = function (postIdx, memberIdx, callback) {
+    pool.getConnection((err, conn) => {
+        if (err) {
+            console.log(err);
+        } else {
+            conn.query('select EXISTS (select idx from post_like where postIdx = ? and memberIdx = ? limit 1) as success;', [postIdx, memberIdx], (err, result) => {
+
+                conn.release();
+                if (err) {
+                    callback(err, null);
+                    return;
+                } else {
+                    callback(null, result);
+                }
+            })
+        }
+    });
+}
+
+
+
+
+module.exports = router

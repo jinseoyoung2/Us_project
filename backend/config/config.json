@@ -1,0 +1,10 @@
+{
+    "connectionLimit":30,
+    "multipleStatements": true,
+    "host" : "25.42.204.241",
+    "port": "3306",
+    "user": "Jin",
+    "password": "1234",
+    "database": "us",
+    "dateStrings": "date"
+}
