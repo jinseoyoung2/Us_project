@@ -172,7 +172,7 @@ const postDetail = function (postIdx, callback) {
 }
 
 // 게시글 등록
-const postUpload = function (memberIdx, content, file, callback) {
+const postUpload = function (memberIdx, content, file, hashTag, callback) {
     pool.getConnection((err, conn) => {
         if (err) {
             console.log(err);
